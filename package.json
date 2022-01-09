@@ -1,0 +1,35 @@
+{
+  "name": "rostar",
+  "version": "0.0.1",
+  "description": "Dead simple fully managed Rojo helper for Roblox projects",
+  "main": "out/index.js",
+  "files": [
+    "out/**",
+    ".remodel/**"
+  ],
+  "scripts": {
+    "build": "npx tsc",
+    "watch": "npx tsc -w",
+    "start": "node out/index.js"
+  },
+  "bin": "./out/index.js",
+  "repository": "github:tacheometry/Rostar",
+  "keywords": [
+    "roblox",
+    "rojo"
+  ],
+  "author": "tacheometry",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/tacheometry/Rostar/issues"
+  },
+  "homepage": "https://github.com/tacheometry/Rostar#readme",
+  "devDependencies": {
+    "@types/node": "^17.0.7",
+    "typescript": "^4.5.4"
+  },
+  "dependencies": {
+    "chalk": "^4.1.2",
+    "commander": "^8.3.0"
+  }
+}
