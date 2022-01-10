@@ -23,18 +23,28 @@ export const initCommand = async (
 	if (!fs.existsSync(directory)) fs.mkdirSync(directory);
 	else if (!isDirectory(directory))
 		return logError("The path must be a directory!");
-	if (
-		!options.force &&
-		fs
-			.readdirSync(directory)
-			.filter(
-				(file) =>
-					!(rbxlExpression.test(file) || lockExpression.test(file))
-			).length !== 0
-	)
-		return logError(
-			'The directory is not empty! To ignore this warning run the command with "--force".'
-		);
+
+	if (!options.force) {
+		const fileNamesToCheck = new Set([
+			"foreman.toml",
+			".gitignore",
+			"default.project.json",
+		]);
+		fileNamesToCheck.forEach((fileName) => {
+			if (!fs.existsSync(path.join(directory, fileName)))
+				fileNamesToCheck.delete(fileName);
+		});
+
+		if (fileNamesToCheck.size > 0) {
+			logError(
+				`Cannot initialize the directory because of the following files: ${[
+					...fileNamesToCheck,
+				].join(", ")}`
+			);
+			logInfo(`Bypass this warning by running "rostar init --force".`);
+			return;
+		}
+	}
 
 	fs.writeFileSync(
 		path.join(directory, "foreman.toml"),
