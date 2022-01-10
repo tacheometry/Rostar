@@ -27,11 +27,6 @@ program
 		"don't unpack non-script instances into rbxm/rbxmx files"
 	)
 	.option(
-		"--depth <depth>",
-		"the depth used for separating model files from each other. Depth 0 produces ServerStorage.rbxm, ReplicatedStorage.rbxm, etc. Depth 1 produces ServerStorage/FolderA.rbxm, ServerStorage/FolderB.rbxm, etc.",
-		"0"
-	)
-	.option(
 		"--model-format <format>",
 		"whether to store models in rbxm (binary) or rbxmx (XML - better for git diffs)",
 		"rbxm"

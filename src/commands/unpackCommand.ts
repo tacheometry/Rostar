@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { deleteFilesInDirectory, isFile } from "../fsUtil";
+import { deleteFilesInDirectory, isDirectory, isFile } from "../fsUtil";
 import { logDone, logError, logInfo, logWarn } from "../loggingFunctions";
 import { writeRostarDataFile } from "../writeRostarDataFile";
 import { runRemodelScript } from "../runRemodelScript";
@@ -10,7 +10,6 @@ export const unpackCommand = async (
 	options: {
 		project: string;
 		lua: boolean;
-		depth: string;
 		modelFormat: string;
 		deleteAssets: string;
 		overwriteProjectFile: true | undefined;
@@ -23,16 +22,7 @@ export const unpackCommand = async (
 	const shouldUnpackLua = options.lua;
 	const shouldUnpackModels = options.models;
 	const modelFormat = options.modelFormat;
-	const instanceDepth = parseFloat(options.depth); // using float intentionally to catch mistakes
 
-	if (
-		isNaN(instanceDepth) ||
-		instanceDepth < 0 ||
-		Math.floor(instanceDepth) !== instanceDepth
-	)
-		return logError(
-			"The depth value must be an integer higher or equal to 0."
-		);
 	if (modelFormat !== "rbxm" && modelFormat !== "rbxmx")
 		return logError('The model format must be either "rbxm" or "rbxmx".');
 
@@ -43,9 +33,14 @@ export const unpackCommand = async (
 	const assetsFolder = path.join(rootProjectDirectory, "assets");
 	if (options.deleteAssets) {
 		logInfo("Deleting files in the assets directory...");
-		deleteFilesInDirectory(assetsFolder).catch(() =>
-			logWarn("Deleting files in the assets folder failed.")
-		);
+		fs.promises
+			.rm(assetsFolder, {
+				recursive: true,
+				force: true,
+			})
+			.catch(() =>
+				logWarn("Deleting files in the assets directory failed.")
+			);
 	}
 
 	const rojoProject = JSON.parse(fs.readFileSync(rojoProjectPath).toString());
@@ -79,28 +74,36 @@ export const unpackCommand = async (
 				pathsToBeDeleted.push(rootDirectory);
 		}
 		pathsToBeDeleted = [...new Set(pathsToBeDeleted)];
-		await Promise.allSettled(
-			pathsToBeDeleted.map((codePath) =>
+		pathsToBeDeleted.forEach(async (codePath) => {
+			if (!isDirectory(codePath)) return;
+			let valid = true;
+			(await fs.promises.readdir(codePath)).forEach((file) => {
+				if (
+					isFile(path.join(codePath, file)) &&
+					modelSourceRegex.test(file)
+				)
+					valid = false;
+			});
+			if (valid) {
 				fs.promises
-					.unlink(path.resolve(codePath))
+					.rm(path.resolve(codePath), {
+						recursive: true,
+						force: true,
+					})
 					.catch(() =>
 						logWarn(`Failed to delete the ${codePath} directory.`)
-					)
-			)
-		);
+					);
+			}
+		});
 	}
 
-	const rostarDataPath = path.join(
-		rootProjectDirectory,
-		"assets/RostarData.json"
-	);
+	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
 	logInfo("Writing Rostar temporary file...");
 	await writeRostarDataFile(rostarDataPath, rojoProjectPath, placeFilePath, {
 		shouldOverwriteProjectFile,
 		shouldUnpackLua,
 		shouldUnpackModels,
 		modelFormat,
-		instanceDepth,
 	});
 
 	logInfo("Running Remodel script...");

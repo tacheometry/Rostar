@@ -1,205 +1,305 @@
-local informationFile = json.fromString(remodel.readFile("assets/RostarData.json"))
-local rojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
+local informationFile = json.fromString(remodel.readFile("RostarData.json"))
+local initialRojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
 local shouldOverwriteProjectFile = informationFile.shouldOverwriteProjectFile
 local shouldUnpackLua = informationFile.shouldUnpackLua
 local shouldUnpackModels = informationFile.shouldUnpackModels
-local modelFormat = informationFile.modelFormat
-local instanceDepth = informationFile.instanceDepth
+local modelFileExtension = informationFile.modelFormat
 local DataModel = remodel.readPlaceFile(informationFile.placeFilePath)
 
+local BASE_ASSETS_FOLDER = "assets"
 local WHITELISTED_SERVICES = {
-	"Workspace",
-	"Lighting",
-	"ReplicatedFirst",
-	"ReplicatedStorage",
-	"ServerScriptService",
-	"ServerStorage",
-	"StarterGui",
-	"StarterPack",
-	"StarterPlayer",
-	"Teams",
-	"SoundService",
-	"Chat",
-	"LocalizationService",
-	"TestService",
+	["Workspace"] = true,
+	["Players"] = true,
+	["Lighting"] = true,
+	["ReplicatedFirst"] = true,
+	["ReplicatedStorage"] = true,
+	["ServerScriptService"] = true,
+	["ServerStorage"] = true,
+	["StarterGui"] = true,
+	["StarterPack"] = true,
+	["StarterPlayer"] = true,
+	["SoundService"] = true,
+	["Chat"] = true,
+	["LocalizationService"] = true,
+	["TestService"] = true,
 }
+
+local function reverseTable(tbl)
+	local rev = {}
+	local size = #tbl
+	for i, value in ipairs(tbl) do
+		rev[size - i + 1] = value
+	end
+	return rev
+end
+
+local function shallowCopyArray(tbl)
+	local newTbl = {}
+	for i, v in ipairs(tbl) do
+		newTbl[i] = v
+	end
+	return newTbl
+end
+
+local function splitString(str, sep)
+	local tbl = {}
+	for str in string.gmatch(str, "([^" .. sep .. "]+)") do
+		table.insert(tbl, str)
+	end
+	return tbl
+end
 
 local function isLuaSourceContainer(className)
 	return className == "Script" or className == "LocalScript" or className == "ModuleScript"
 end
 
-local function getNameForScript(baseName, className)
+local function getFileNameForScript(baseName, className)
 	local suffix = (className == "Script" and ".server") or (className == "LocalScript" and ".client") or ""
 	return baseName .. suffix .. ".lua"
 end
 
-local function getNameForModel(baseName)
-	return baseName .. "." .. modelFormat
+local function isInstancePure(instance)
+	return isLuaSourceContainer(instance.ClassName)
+		or instance.ClassName == "Folder"
+		or instance.ClassName == "StarterPlayerScripts"
+		or instance.ClassName == "StarterCharacterScripts"
 end
 
-local function joinPath(...)
-	return table.concat({ ... }, "/")
+local function formatModelFile(baseName)
+	return baseName .. "." .. modelFileExtension
 end
 
-local function isSourceNode(node)
-	return type(node["$path"]) == "string" and node["$path"]:find("%.rbxmx?$") == nil
+local function joinPath(pathSegments)
+	return table.concat(pathSegments, "/")
 end
 
-local function findFirstScript(instance)
-	return instance:FindFirstChildOfClass("Script")
-		or instance:FindFirstChildOfClass("LocalScript")
-		or instance:FindFirstChildOfClass("ModuleScript")
+local function makeFileParentDirectory(segments)
+	local size = #segments
+	local newSegments = {}
+	for i, segment in ipairs(segments) do
+		if i ~= size then
+			newSegments[i] = segment
+		end
+	end
+	remodel.createDirAll(joinPath(newSegments))
 end
 
-local function isInstanceContainerPure(instance)
-	for _, descendant in ipairs(instance:GetDescendants()) do
-		if not (isLuaSourceContainer(descendant.ClassName) or descendant.ClassName == "Folder") then
+local function writeModelFile(instance, pathSegments)
+	makeFileParentDirectory(pathSegments)
+	remodel.writeModelFile(instance, joinPath(pathSegments))
+end
+
+local function writeFile(pathSegments, content)
+	makeFileParentDirectory(pathSegments)
+	remodel.writeFile(joinPath(pathSegments), content)
+end
+
+local function isService(instance)
+	return instance.Parent == DataModel
+end
+
+local function isCodeTree(instance)
+	local toCheck = instance:GetDescendants()
+	table.insert(toCheck, instance)
+	for _, descendant in ipairs(toCheck) do
+		if not isInstancePure(descendant) then
 			return false
 		end
 	end
 	return true
 end
 
-local function generateFilesystemScriptTree(node, mountPoint, nodePaths)
-	local instanceInDataModel = DataModel
-	for _, subpath in ipairs(nodePaths[node]) do
-		instanceInDataModel = instanceInDataModel:FindFirstChild(subpath)
-		if not instanceInDataModel then
-			print(
-				'Could not find the "'
-					.. table.concat(nodePaths[node], ".")
-					.. '" instance in the DataModel! Skipping...'
-			)
-			return
-		end
+local function getInstancePath(instance)
+	local parents = {}
+	local currentInstance = instance
+	while currentInstance.Parent ~= DataModel do
+		table.insert(parents, currentInstance.Parent)
+		currentInstance = currentInstance.Parent
 	end
-	local stack = { { mountPoint, instanceInDataModel } }
-	while #stack > 0 do
-		local node = stack[#stack]
-		stack[#stack] = nil
-		local currentPath = node[1]
-		local currentInstance = node[2]
+	parents = reverseTable(parents)
+	return parents
+end
 
-		if isLuaSourceContainer(currentInstance.ClassName) then
-			if #currentInstance:GetChildren() > 0 then
-				remodel.createDirAll(currentPath)
-				remodel.writeFile(
-					joinPath(currentPath, getNameForScript("init", currentInstance.ClassName)),
-					remodel.getRawProperty(currentInstance, "Source")
-				)
+local function cloneNoChildren(instance)
+	instance = instance:Clone()
+	for _, child in ipairs(instance:GetChildren()) do
+		child:Destroy()
+	end
+	return instance
+end
+
+local function findInstanceFromPath(pathSegments)
+	local currentInstance = DataModel
+	while currentInstance and #pathSegments > 0 do
+		local pathSegment = table.remove(pathSegments, 1)
+		currentInstance = currentInstance:FindFirstChild(pathSegment)
+	end
+	return currentInstance
+end
+
+local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
+	local stack = { { rootInstance, rootFsPathSegments } }
+
+	local function iterate()
+		local stackValue = table.remove(stack)
+
+		local instance = stackValue[1]
+		local fsPathSegments = stackValue[2]
+
+		for _, child in ipairs(instance:GetChildren()) do
+			local segmentsForChild = shallowCopyArray(fsPathSegments)
+			table.insert(segmentsForChild, child.Name)
+			table.insert(stack, { child, segmentsForChild })
+		end
+
+		if isLuaSourceContainer(instance.ClassName) then
+			local shouldBeInExpandedForm = #instance:GetChildren() > 0
+			if instance == rootInstance then
+				shouldBeInExpandedForm = true
+			end
+			if shouldBeInExpandedForm then
+				table.insert(fsPathSegments, getFileNameForScript("init", instance.ClassName))
 			else
-				remodel.writeFile(
-					currentPath .. getNameForScript("", currentInstance.ClassName),
-					remodel.getRawProperty(currentInstance, "Source")
+				fsPathSegments[#fsPathSegments] = getFileNameForScript(
+					fsPathSegments[#fsPathSegments],
+					instance.ClassName
 				)
 			end
-		else
-			remodel.createDirAll(currentPath)
-		end
-
-		for _, child in ipairs(currentInstance:GetChildren()) do
-			table.insert(stack, { currentPath .. "/" .. child.Name, child })
+			writeFile(fsPathSegments, remodel.getRawProperty(instance, "Source"))
 		end
 	end
-	instanceInDataModel:Destroy()
-end
 
-local function attachFullPathsToAllNodes(rootNode)
-	local stack = { { rootNode, {} } }
-	local allNodes = {}
-	local nodePaths = {}
 	while #stack > 0 do
-		local stackEntry = stack[#stack]
-		stack[#stack] = nil
-		local node = stackEntry[1]
-		local path = stackEntry[2]
-		nodePaths[node] = path
-		table.insert(allNodes, node)
-		for key, value in pairs(node) do
-			if key ~= "$properties" and type(value) == "table" and value[1] == nil then
-				local newPath = {}
-				for i, pathSegment in ipairs(path) do
-					newPath[i] = pathSegment
-				end
-				table.insert(newPath, key)
-				table.insert(stack, { value, newPath })
-			end
+		iterate()
+	end
+end
+
+do
+	local newRojoProject = {
+		tree = {
+			["$className"] = "DataModel",
+		},
+	}
+	for property, value in pairs(initialRojoProject) do
+		if property ~= "tree" then
+			newRojoProject[property] = value
 		end
 	end
-	return rootNode, allNodes, nodePaths
-end
 
-local newProjectFile = {
-	tree = {
-		["$className"] = "DataModel",
-	},
-}
-for property, value in pairs(rojoProject) do
-	if property ~= "tree" then
-		newProjectFile[property] = value
+	do
+		local camera = DataModel:GetService("Workspace"):FindFirstChild("Camera")
+		if camera then
+			camera:Destroy()
+		end
 	end
-end
 
-local servicesToBeStored = {}
-local warnAboutImpureTrees = false
-for _, serviceName in ipairs(WHITELISTED_SERVICES) do
-	local serviceInstance = DataModel:GetService(serviceName)
-	if #serviceInstance:GetChildren() > 0 then
-		local serviceNode = {
-			["$path"] = joinPath("assets", getNameForModel(serviceName)),
-		}
-		table.insert(servicesToBeStored, serviceName)
-		newProjectFile.tree[serviceName] = serviceNode
-		for _, child in ipairs(serviceInstance:GetChildren()) do
-			local isPure = isInstanceContainerPure(child)
-			local isSourceNode = findFirstScript(child) ~= nil
+	do
+		local stack = DataModel:GetChildren()
 
-			if isSourceNode then
-				if isPure then
-					serviceNode[child.Name] = {
-						["$path"] = joinPath("DataModel", serviceName, child.Name),
+		local function iterate()
+			local instance = table.remove(stack)
+
+			if isService(instance) and not WHITELISTED_SERVICES[instance.ClassName] then
+				return
+			end
+
+			if isCodeTree(instance) and #instance:GetChildren() > 0 then
+				local instancePath = getInstancePath(instance)
+				local projectLocation = newRojoProject.tree
+				local fsPath = {}
+				for _, pathSegment in ipairs(instancePath) do
+					if not projectLocation[pathSegment.Name] then
+						projectLocation[pathSegment.Name] = {}
+					end
+					projectLocation = projectLocation[pathSegment.Name]
+					table.insert(fsPath, pathSegment.Name)
+				end
+				local node = {}
+				projectLocation[instance.Name] = node
+				table.insert(fsPath, 1, "DataModel")
+				table.insert(fsPath, instance.Name)
+				node["$path"] = joinPath(fsPath)
+				return
+			end
+
+			local shouldCreateFolder = isService(instance) or instance.ClassName == "Folder"
+			local shouldCreateModelFile = isService(instance) or not shouldCreateFolder
+
+			local parent = instance.Parent
+			if isService(parent) and shouldUnpackModels then
+				if not newRojoProject.tree[parent.Name] then
+					newRojoProject.tree[parent.Name] = {}
+				end
+				newRojoProject.tree[parent.Name][instance.Name] = {
+					["$path"] = joinPath({
+						BASE_ASSETS_FOLDER,
+						parent.Name,
+						shouldCreateModelFile and formatModelFile(instance.Name) or instance.Name,
+					}),
+				}
+			end
+
+			if shouldCreateFolder and #instance:GetChildren() > 0 then
+				for _, child in ipairs(instance:GetChildren()) do
+					table.insert(stack, child)
+				end
+			end
+
+			if shouldCreateModelFile and shouldUnpackModels then
+				local fsPath = { BASE_ASSETS_FOLDER }
+				for _, pathSegment in ipairs(getInstancePath(instance)) do
+					table.insert(fsPath, pathSegment.Name)
+				end
+				table.insert(fsPath, formatModelFile(instance.Name))
+				if isService(instance) then
+					newRojoProject.tree[instance.Name] = {
+						["$path"] = joinPath(fsPath),
 					}
-				else
-					warnAboutImpureTrees = true
+					instance = cloneNoChildren(instance)
+				end
+				writeModelFile(instance, fsPath)
+			end
+		end
+
+		while #stack > 0 do
+			iterate()
+		end
+	end
+
+	if shouldUnpackLua then
+		local currentProjectFile = shouldOverwriteProjectFile and newRojoProject or initialRojoProject
+		local stack = { { currentProjectFile.tree, {} } }
+
+		local function iterate()
+			local stackValue = table.remove(stack)
+
+			local node = stackValue[1]
+			local dataModelPath = stackValue[2]
+
+			local nodePathProperty = node["$path"]
+
+			if nodePathProperty then
+				local dataModelInstance = findInstanceFromPath(shallowCopyArray(dataModelPath))
+				if dataModelInstance and isCodeTree(dataModelInstance) then
+					mountDataModelCodeTreeToPath(dataModelInstance, splitString(nodePathProperty, "/"))
+				end
+			end
+			for key, value in pairs(node) do
+				if type(value) == "table" and key ~= "$properties" then
+					local newDataModelPath = shallowCopyArray(dataModelPath)
+					table.insert(newDataModelPath, key)
+					table.insert(stack, { value, newDataModelPath })
 				end
 			end
 		end
-	end
-end
-rojoProject = newProjectFile
-local rojoTree, allNodes, nodePaths = attachFullPathsToAllNodes(rojoProject.tree)
 
-local nodesWithScripts = {}
-for _, node in ipairs(allNodes) do
-	if isSourceNode(node) then
-		table.insert(nodesWithScripts, node)
-	end
-end
-if shouldUnpackLua then
-	print("Unpacking scripts...")
-	for _, node in ipairs(nodesWithScripts) do
-		generateFilesystemScriptTree(node, node["$path"], nodePaths)
-	end
-end
-
-if shouldUnpackModels then
-	print("Unpacking non-script instances...")
-	if instanceDepth ~= 0 then
-		print("Warning: instance depth different than 0 is not implemented")
+		while #stack > 0 do
+			iterate()
+		end
 	end
 
-	for _, serviceName in ipairs(servicesToBeStored) do
-		local serviceInstance = DataModel:FindFirstChild(serviceName)
-		remodel.writeModelFile(serviceInstance, joinPath("assets", getNameForModel(serviceName)))
+	if shouldOverwriteProjectFile then
+		print("Writing to project file...")
+		remodel.writeFile(informationFile.rojoProjectPath, json.toStringPretty(newRojoProject))
 	end
-end
-
-if shouldOverwriteProjectFile then
-	if warnAboutImpureTrees then
-		print(
-			"Warning: non-script instances mixed with scripts have been detected - these will be merged into one file."
-		)
-	end
-	print("Writing to project file...")
-	remodel.writeFile(informationFile.rojoProjectPath, json.toStringPretty(rojoProject))
 end
