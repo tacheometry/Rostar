@@ -26,8 +26,10 @@ export const unpackCommand = async (
 	if (modelFormat !== "rbxm" && modelFormat !== "rbxmx")
 		return logError('The model format must be either "rbxm" or "rbxmx".');
 
-	if (!isFile(placeFilePath)) return logError("Invalid place file!");
-	if (!isFile(rojoProjectPath)) return logError("Invalid project.json file!");
+	if (!isFile(placeFilePath))
+		return logError("The place file could not be found!");
+	if (!isFile(rojoProjectPath))
+		return logError("The Rojo project file could not be found!");
 
 	const rootProjectDirectory = path.resolve(path.join(rojoProjectPath, ".."));
 	const assetsFolder = path.join(rootProjectDirectory, "assets");
