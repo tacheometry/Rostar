@@ -22,6 +22,7 @@ local WHITELISTED_SERVICES = {
 	["Chat"] = true,
 	["LocalizationService"] = true,
 	["TestService"] = true,
+	["MaterialService"] = true,
 }
 
 local function reverseTable(tbl)
