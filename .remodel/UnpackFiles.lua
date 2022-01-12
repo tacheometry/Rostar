@@ -41,6 +41,22 @@ local function shallowCopyArray(tbl)
 	return newTbl
 end
 
+local function prependCopy(tbl, ...)
+	local cp = shallowCopyArray(tbl)
+	for _, element in ipairs({ ... }) do
+		table.insert(cp, 1, element)
+	end
+	return cp
+end
+
+local function appendCopy(tbl, ...)
+	local cp = shallowCopyArray(tbl)
+	for _, element in ipairs({ ... }) do
+		table.insert(cp, element)
+	end
+	return cp
+end
+
 local function splitString(str, sep)
 	local tbl = {}
 	for str in string.gmatch(str, "([^" .. sep .. "]+)") do
@@ -53,16 +69,13 @@ local function isLuaSourceContainer(className)
 	return className == "Script" or className == "LocalScript" or className == "ModuleScript"
 end
 
-local function getFileNameForScript(baseName, className)
+local function formatScriptFile(baseName, className)
 	local suffix = (className == "Script" and ".server") or (className == "LocalScript" and ".client") or ""
 	return baseName .. suffix .. ".lua"
 end
 
 local function isInstancePure(instance)
-	return isLuaSourceContainer(instance.ClassName)
-		or instance.ClassName == "Folder"
-		or instance.ClassName == "StarterPlayerScripts"
-		or instance.ClassName == "StarterCharacterScripts"
+	return isLuaSourceContainer(instance.ClassName) or instance.ClassName == "Folder"
 end
 
 local function formatModelFile(baseName)
@@ -82,6 +95,17 @@ local function makeFileParentDirectory(segments)
 		end
 	end
 	remodel.createDirAll(joinPath(newSegments))
+end
+
+local function addEntryToProjectNode(node, entrySegments, value)
+	for i, segment in ipairs(entrySegments) do
+		node[segment] = node[segment] or {}
+		node = node[segment]
+		if not node["$className"] and i ~= #entrySegments and i ~= 1 then
+			node["$className"] = "Folder"
+		end
+	end
+	node["$path"] = value
 end
 
 local function writeModelFile(instance, pathSegments)
@@ -109,6 +133,10 @@ local function isCodeTree(instance)
 	return true
 end
 
+local function shouldInstanceGetMergedInParentModel(instance)
+	return (not isInstancePure(instance)) and instance.ClassName ~= "Folder" and instance.ClassName ~= "Model"
+end
+
 local function getInstancePath(instance)
 	local parents = {}
 	local currentInstance = instance
@@ -120,12 +148,13 @@ local function getInstancePath(instance)
 	return parents
 end
 
-local function cloneNoChildren(instance)
-	instance = instance:Clone()
-	for _, child in ipairs(instance:GetChildren()) do
-		child:Destroy()
+local function getAssetParent(instance)
+	local path = {}
+	local instancePath = getInstancePath(instance)
+	for _, segment in ipairs(instancePath) do
+		table.insert(path, segment.Name)
 	end
-	return instance
+	return path
 end
 
 local function findInstanceFromPath(pathSegments)
@@ -135,6 +164,30 @@ local function findInstanceFromPath(pathSegments)
 		currentInstance = currentInstance:FindFirstChild(pathSegment)
 	end
 	return currentInstance
+end
+
+local function canNodeForInstanceBeExpanded(instance)
+	return instance.ClassName == "Folder"
+		or isService(instance)
+		or instance.ClassName == "StarterPlayerScripts"
+		or instance.ClassName == "StarterCharacterScripts"
+end
+
+local function shouldNodeForInstanceBeExpanded(instance)
+	if not canNodeForInstanceBeExpanded(instance) then
+		return false
+	end
+	local shouldBeExpanded = true
+	if instance.ClassName == "Folder" then
+		shouldBeExpanded = false
+		for _, child in ipairs(instance:GetChildren()) do
+			if shouldInstanceGetMergedInParentModel(child) then
+				shouldBeExpanded = true
+				break
+			end
+		end
+	end
+	return shouldBeExpanded
 end
 
 local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
@@ -153,17 +206,11 @@ local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
 		end
 
 		if isLuaSourceContainer(instance.ClassName) then
-			local shouldBeInExpandedForm = #instance:GetChildren() > 0
-			if instance == rootInstance then
-				shouldBeInExpandedForm = true
-			end
+			local shouldBeInExpandedForm = #instance:GetChildren() > 0 or instance == rootInstance
 			if shouldBeInExpandedForm then
-				table.insert(fsPathSegments, getFileNameForScript("init", instance.ClassName))
+				table.insert(fsPathSegments, formatScriptFile("init", instance.ClassName))
 			else
-				fsPathSegments[#fsPathSegments] = getFileNameForScript(
-					fsPathSegments[#fsPathSegments],
-					instance.ClassName
-				)
+				fsPathSegments[#fsPathSegments] = formatScriptFile(fsPathSegments[#fsPathSegments], instance.ClassName)
 			end
 			writeFile(fsPathSegments, remodel.getRawProperty(instance, "Source"))
 		end
@@ -187,77 +234,68 @@ do
 	end
 
 	do
-		local camera = DataModel:GetService("Workspace"):FindFirstChild("Camera")
-		if camera then
-			camera:Destroy()
+		local stack = {}
+		for _, child in ipairs(DataModel:GetChildren()) do
+			if WHITELISTED_SERVICES[child.ClassName] then
+				table.insert(stack, child)
+			end
 		end
-	end
-
-	do
-		local stack = DataModel:GetChildren()
 
 		local function iterate()
 			local instance = table.remove(stack)
 
-			if isService(instance) and not WHITELISTED_SERVICES[instance.ClassName] then
+			if isCodeTree(instance) then
+				local projectPath = getAssetParent(instance)
+				table.insert(projectPath, instance.Name)
+				local filePath = prependCopy(projectPath, "DataModel")
+				addEntryToProjectNode(newRojoProject.tree, projectPath, joinPath(filePath))
 				return
 			end
 
-			if isCodeTree(instance) and #instance:GetChildren() > 0 then
-				local instancePath = getInstancePath(instance)
-				local projectLocation = newRojoProject.tree
-				local fsPath = {}
-				for _, pathSegment in ipairs(instancePath) do
-					if not projectLocation[pathSegment.Name] then
-						projectLocation[pathSegment.Name] = {}
+			if canNodeForInstanceBeExpanded(instance) then
+				local nodeParentProjectPath = getAssetParent(instance)
+				local shouldBeExpanded = shouldNodeForInstanceBeExpanded(instance)
+
+				if shouldBeExpanded then
+					local folderPath = shallowCopyArray(nodeParentProjectPath)
+					table.insert(folderPath, instance.Name)
+					local asset_folderPath = prependCopy(folderPath, BASE_ASSETS_FOLDER)
+					local modelPath = shallowCopyArray(nodeParentProjectPath)
+					table.insert(modelPath, formatModelFile(instance.Name))
+					local asset_modelPath = prependCopy(modelPath, BASE_ASSETS_FOLDER)
+
+					addEntryToProjectNode(newRojoProject.tree, folderPath, joinPath(asset_modelPath))
+					local indexInstance = instance:Clone()
+					for _, child in ipairs(indexInstance:GetChildren()) do
+						if not shouldInstanceGetMergedInParentModel(child) then
+							child:Destroy()
+						end
 					end
-					projectLocation = projectLocation[pathSegment.Name]
-					table.insert(fsPath, pathSegment.Name)
-				end
-				local node = {}
-				projectLocation[instance.Name] = node
-				table.insert(fsPath, 1, "DataModel")
-				table.insert(fsPath, instance.Name)
-				node["$path"] = joinPath(fsPath)
-				return
-			end
+					writeModelFile(indexInstance, asset_modelPath)
+					nodeParentProjectPath[#nodeParentProjectPath] = indexInstance.Name
 
-			local shouldCreateFolder = isService(instance) or instance.ClassName == "Folder"
-			local shouldCreateModelFile = isService(instance) or not shouldCreateFolder
-
-			local parent = instance.Parent
-			if isService(parent) and shouldUnpackModels then
-				if not newRojoProject.tree[parent.Name] then
-					newRojoProject.tree[parent.Name] = {}
+					for _, child in ipairs(instance:GetChildren()) do
+						if not shouldInstanceGetMergedInParentModel(child) then
+							table.insert(stack, child)
+						end
+					end
+				else
+					addEntryToProjectNode(
+						newRojoProject.tree,
+						nodeParentProjectPath,
+						joinPath(prependCopy(nodeParentProjectPath, "DataModel"))
+					)
+					for _, child in ipairs(instance:GetChildren()) do
+						table.insert(stack, child)
+					end
 				end
-				newRojoProject.tree[parent.Name][instance.Name] = {
-					["$path"] = joinPath({
-						BASE_ASSETS_FOLDER,
-						parent.Name,
-						shouldCreateModelFile and formatModelFile(instance.Name) or instance.Name,
-					}),
-				}
-			end
-
-			if shouldCreateFolder and #instance:GetChildren() > 0 then
-				for _, child in ipairs(instance:GetChildren()) do
-					table.insert(stack, child)
-				end
-			end
-
-			if shouldCreateModelFile and shouldUnpackModels then
-				local fsPath = { BASE_ASSETS_FOLDER }
-				for _, pathSegment in ipairs(getInstancePath(instance)) do
-					table.insert(fsPath, pathSegment.Name)
-				end
-				table.insert(fsPath, formatModelFile(instance.Name))
-				if isService(instance) then
-					newRojoProject.tree[instance.Name] = {
-						["$path"] = joinPath(fsPath),
-					}
-					instance = cloneNoChildren(instance)
-				end
-				writeModelFile(instance, fsPath)
+			else
+				local parentFolderPath = getAssetParent(instance, false)
+				local instancePath = appendCopy(parentFolderPath, instance.Name)
+				local assetPath = prependCopy(parentFolderPath, BASE_ASSETS_FOLDER)
+				table.insert(assetPath, formatModelFile(instance.Name))
+				addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
+				writeModelFile(instance, assetPath)
 			end
 		end
 
