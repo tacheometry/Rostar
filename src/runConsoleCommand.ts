@@ -1,13 +1,15 @@
 import child_process from "child_process";
-import { logRemodel } from "./loggingFunctions";
+import { logError } from "./loggingFunctions";
 
-export const runRemodelScript = (
-	scriptPath: string,
-	workingDirectory?: string
+export const runConsoleCommand = (
+	command: string,
+	loggingFunction: (message: string) => void,
+	workingDirectory?: string,
+	errorFunction = logError
 ) =>
 	new Promise<void>((resolve, reject) => {
 		child_process.exec(
-			`remodel run "${scriptPath}"`,
+			command,
 			{
 				cwd: workingDirectory,
 			},
@@ -15,9 +17,9 @@ export const runRemodelScript = (
 				stdout
 					.split("\n")
 					.filter((line) => line.trim() !== "")
-					.forEach(logRemodel);
+					.forEach(loggingFunction);
 				if (err) {
-					console.error(err);
+					errorFunction(err.message);
 					reject();
 				} else resolve();
 			}

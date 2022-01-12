@@ -1,21 +1,20 @@
 import chalk from "chalk";
 
-export const logInfo = (message: string) => {
-	console.error(chalk.blue("[INFO]") + " " + message);
-};
+export const loggingFunction =
+	(
+		prefix: string,
+		colorFunction: chalk.Chalk = chalk.blue,
+		consoleFunction:
+			| typeof console["log"]
+			| typeof console["error"] = console.log
+	) =>
+	(message: string) =>
+		consoleFunction(colorFunction("[" + prefix + "]") + " " + message);
 
-export const logDone = (message: string) => {
-	console.log(chalk.green("[DONE]") + " " + message);
-};
+export const logInfo = loggingFunction("INFO");
 
-export const logRemodel = (message: string) => {
-	console.log(chalk.blue("[REMODEL]") + " " + message);
-};
+export const logDone = loggingFunction("DONE", chalk.green);
 
-export const logWarn = (message: string) => {
-	console.error(chalk.yellow("[WARN]") + " " + message);
-};
+export const logWarn = loggingFunction("WARN", chalk.yellow, console.warn);
 
-export const logError = (message: string) => {
-	console.error(chalk.red("[ERROR]") + " " + message);
-};
+export const logError = loggingFunction("ERROR", chalk.red, console.error);

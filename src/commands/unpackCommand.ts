@@ -1,9 +1,16 @@
 import path from "path";
 import fs from "fs";
 import { deleteFilesInDirectory, isDirectory, isFile } from "../fsUtil";
-import { logDone, logError, logInfo, logWarn } from "../loggingFunctions";
+import {
+	logDone,
+	logError,
+	loggingFunction,
+	logInfo,
+	logWarn,
+} from "../loggingFunctions";
 import { writeRostarDataFile } from "../writeRostarDataFile";
-import { runRemodelScript } from "../runRemodelScript";
+import { runConsoleCommand } from "../runConsoleCommand";
+import { deleteCodeDirectories } from "../deleteCodeDirectories";
 
 export const unpackCommand = async (
 	placeFilePath: string,
@@ -11,7 +18,6 @@ export const unpackCommand = async (
 		project: string;
 		lua: boolean;
 		modelFormat: string;
-		deleteAssets: string;
 		overwriteProjectFile: true | undefined;
 		models: boolean;
 	}
@@ -32,8 +38,9 @@ export const unpackCommand = async (
 		return logError("The Rojo project file could not be found!");
 
 	const rootProjectDirectory = path.resolve(path.join(rojoProjectPath, ".."));
-	const assetsFolder = path.join(rootProjectDirectory, "assets");
-	if (options.deleteAssets) {
+
+	if (options.models) {
+		const assetsFolder = path.join(rootProjectDirectory, "assets");
 		logInfo("Deleting files in the assets directory...");
 		fs.promises
 			.rm(assetsFolder, {
@@ -45,58 +52,11 @@ export const unpackCommand = async (
 			);
 	}
 
-	const rojoProject = JSON.parse(fs.readFileSync(rojoProjectPath).toString());
-	{
-		const modelSourceRegex = /\.rbxmx?/;
-		const codePaths: string[] = [];
-		const stack = [rojoProject.tree];
-		while (stack.length > 0) {
-			const currentNode = stack.pop();
-			for (const property in currentNode) {
-				const value = currentNode[property];
-				if (property === "$path" && !modelSourceRegex.test(value)) {
-					codePaths.push(value);
-				} else if (
-					property !== "$properties" &&
-					typeof value === "object" &&
-					!Array.isArray(value)
-				) {
-					stack.push(value);
-				}
-			}
-		}
-		let pathsToBeDeleted = [];
-		for (let codePath of codePaths) {
-			codePath = path.resolve(codePath);
-			const relative = path
-				.relative(rootProjectDirectory, codePath)
-				.split(path.sep);
-			let rootDirectory = relative.shift()!;
-			if (rootDirectory !== ".." && rootDirectory !== ".")
-				pathsToBeDeleted.push(rootDirectory);
-		}
-		pathsToBeDeleted = [...new Set(pathsToBeDeleted)];
-		pathsToBeDeleted.forEach(async (codePath) => {
-			if (!isDirectory(codePath)) return;
-			let valid = true;
-			(await fs.promises.readdir(codePath)).forEach((file) => {
-				if (
-					isFile(path.join(codePath, file)) &&
-					modelSourceRegex.test(file)
-				)
-					valid = false;
-			});
-			if (valid) {
-				fs.promises
-					.rm(path.resolve(codePath), {
-						recursive: true,
-						force: true,
-					})
-					.catch(() =>
-						logWarn(`Failed to delete the ${codePath} directory.`)
-					);
-			}
-		});
+	if (options.lua) {
+		const rojoProject = JSON.parse(
+			fs.readFileSync(rojoProjectPath).toString()
+		);
+		deleteCodeDirectories(rojoProject, rootProjectDirectory);
 	}
 
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
@@ -109,8 +69,9 @@ export const unpackCommand = async (
 	});
 
 	logInfo("Running Remodel script...");
-	runRemodelScript(
-		path.join(__dirname, "../../.remodel/UnpackFiles.lua"),
+	runConsoleCommand(
+		`remodel run ${path.join(__dirname, "../../.remodel/UnpackFiles.lua")}`,
+		loggingFunction("REMODEL"),
 		rootProjectDirectory
 	)
 		.then(() => logDone(`Unpacked ${path.basename(placeFilePath)}`))

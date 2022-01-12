@@ -2,15 +2,19 @@ import path from "path";
 import fs from "fs";
 import child_process from "child_process";
 import { isDirectory } from "../fsUtil";
-import { logDone, logError, logInfo } from "../loggingFunctions";
+import {
+	logDone,
+	logError,
+	loggingFunction,
+	logInfo,
+} from "../loggingFunctions";
+import hasbin from "hasbin";
+import { runConsoleCommand } from "../runConsoleCommand";
 
 const DEFAULT_FOREMAN_CONFIG = `[tools]
 rojo = { source = "rojo-rbx/rojo", version = "~7.0.0" }
-remodel = { source = "rojo-rbx/remodel", version = "~0.9.0" }
+remodel = { source = "rojo-rbx/remodel", version = "0.9.1" }
 `;
-
-const rbxlExpression = /\.rbxlx?/;
-const lockExpression = /\.rbxlx?\.lock/;
 
 export const initCommand = async (
 	directory: string = ".",
@@ -65,6 +69,17 @@ export const initCommand = async (
 }
 `
 	);
+
+	if (hasbin.sync("foreman")) {
+		logInfo("Foreman has been detected");
+		const foremanLog = loggingFunction("FOREMAN");
+		await runConsoleCommand(
+			"foreman install",
+			foremanLog,
+			undefined,
+			foremanLog
+		).catch(() => {});
+	}
 
 	logDone(`Initialized project in ${directory}.`);
 };
