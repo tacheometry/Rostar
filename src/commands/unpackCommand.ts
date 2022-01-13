@@ -1,6 +1,6 @@
 import path from "path";
 import fs from "fs";
-import { deleteFilesInDirectory, isDirectory, isFile } from "../fsUtil";
+import { isFile } from "../fsUtil";
 import {
 	logDone,
 	logError,
@@ -18,16 +18,18 @@ export const unpackCommand = async (
 		project: string;
 		lua: boolean;
 		modelFormat: string;
-		overwriteProjectFile: true | undefined;
+		overwriteProject: boolean;
 		models: boolean;
+		assetsDirectory: string;
 	}
 ) => {
 	placeFilePath = path.resolve(placeFilePath);
 	const rojoProjectPath = path.resolve(options.project);
-	const shouldOverwriteProjectFile = !!options.overwriteProjectFile;
+	const shouldOverwriteProjectFile = options.overwriteProject;
 	const shouldUnpackLua = options.lua;
 	const shouldUnpackModels = options.models;
 	const modelFormat = options.modelFormat;
+	const assetsDirectory = options.assetsDirectory;
 
 	if (modelFormat !== "rbxm" && modelFormat !== "rbxmx")
 		return logError('The model format must be either "rbxm" or "rbxmx".');
@@ -40,7 +42,7 @@ export const unpackCommand = async (
 	const rootProjectDirectory = path.resolve(path.join(rojoProjectPath, ".."));
 
 	if (options.models) {
-		const assetsFolder = path.join(rootProjectDirectory, "assets");
+		const assetsFolder = path.join(rootProjectDirectory, assetsDirectory);
 		logInfo("Deleting files in the assets directory...");
 		fs.promises
 			.rm(assetsFolder, {
@@ -66,6 +68,7 @@ export const unpackCommand = async (
 		shouldUnpackLua,
 		shouldUnpackModels,
 		modelFormat,
+		assetsDirectory,
 	});
 
 	logInfo("Running Remodel script...");

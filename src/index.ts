@@ -36,8 +36,13 @@ program
 	)
 	.option("--no-lua", "don't unpack Roblox scripts into files")
 	.option(
-		"-O, --overwrite-project-file",
+		"--no-overwrite-project",
 		"whether to overwrite the project file in a way that all assets and scripts are used"
+	)
+	.option(
+		"--assets-directory <assetsDirectory>",
+		"where to place rbxm/rbxmx files",
+		"DataModel"
 	)
 	.action(unpackCommand);
 

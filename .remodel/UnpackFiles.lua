@@ -4,9 +4,9 @@ local shouldOverwriteProjectFile = informationFile.shouldOverwriteProjectFile
 local shouldUnpackLua = informationFile.shouldUnpackLua
 local shouldUnpackModels = informationFile.shouldUnpackModels
 local modelFileExtension = informationFile.modelFormat
+local baseAssetsFolder = informationFile.assetsDirectory
 local DataModel = remodel.readPlaceFile(informationFile.placeFilePath)
 
-local BASE_ASSETS_FOLDER = "assets"
 local WHITELISTED_SERVICES = {
 	["Workspace"] = true,
 	["Players"] = true,
@@ -98,13 +98,10 @@ local function makeFileParentDirectory(segments)
 	remodel.createDirAll(joinPath(newSegments))
 end
 
-local function addEntryToProjectNode(node, entrySegments, value, noClassName)
+local function addEntryToProjectNode(node, entrySegments, value, noAddClassName)
 	for i, segment in ipairs(entrySegments) do
 		node[segment] = node[segment] or {}
 		node = node[segment]
-		if not node["$className"] and (i ~= #entrySegments) and (i ~= 1) and not noClassName then
-			node["$className"] = "Folder"
-		end
 	end
 	node["$path"] = value
 end
@@ -135,7 +132,9 @@ local function isCodeTree(instance)
 end
 
 local function shouldInstanceGetMergedInParentModel(instance)
-	local basicCheck = (not isInstancePure(instance))
+	local basicCheck = (not isService(instance))
+		and (not isInstancePure(instance))
+		and (not isCodeTree(instance))
 		and instance.ClassName ~= "Folder"
 		and instance.ClassName ~= "Model"
 		and instance.ClassName ~= "StarterCharacterScripts"
@@ -192,17 +191,15 @@ local function shouldNodeForInstanceBeExpanded(instance)
 	if not canNodeForInstanceBeExpanded(instance) then
 		return false
 	end
-	local shouldBeExpanded = true
 	if instance.ClassName == "Folder" then
-		shouldBeExpanded = false
 		for _, child in ipairs(instance:GetChildren()) do
 			if shouldInstanceGetMergedInParentModel(child) then
-				shouldBeExpanded = true
-				break
+				return true
 			end
 		end
+		return false
 	end
-	return shouldBeExpanded
+	return true
 end
 
 local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
@@ -266,25 +263,31 @@ do
 		local function iterate()
 			local instance = table.remove(stack)
 
-			if isCodeTree(instance) then
-				local projectPath = getAssetParent(instance)
-				table.insert(projectPath, instance.Name)
-				local filePath = prependCopy(projectPath, "DataModel")
-				addEntryToProjectNode(newRojoProject.tree, projectPath, joinPath(filePath))
+			if shouldInstanceGetMergedInParentModel(instance) then
 				return
 			end
 
+			if isCodeTree(instance) then
+				if instance.ClassName == "Folder" and #instance:GetChildren() > 0 or instance.ClassName ~= "Folder" then
+					local projectPath = getAssetParent(instance)
+					table.insert(projectPath, instance.Name)
+					local filePath = prependCopy(projectPath, "DataModel")
+					addEntryToProjectNode(newRojoProject.tree, projectPath, joinPath(filePath))
+					return
+				end
+			end
+			local parentPath = getAssetParent(instance)
+
 			if canNodeForInstanceBeExpanded(instance) then
-				local nodeParentProjectPath = getAssetParent(instance)
 				local shouldBeExpanded = shouldNodeForInstanceBeExpanded(instance)
+				local folderPath = shallowCopyArray(parentPath)
+				table.insert(folderPath, instance.Name)
+				local modelPath = shallowCopyArray(parentPath)
+				table.insert(modelPath, formatModelFile(instance.Name))
+				local asset_modelPath = prependCopy(modelPath, baseAssetsFolder)
 
 				if shouldBeExpanded then
-					local folderPath = shallowCopyArray(nodeParentProjectPath)
-					table.insert(folderPath, instance.Name)
-					local asset_folderPath = prependCopy(folderPath, BASE_ASSETS_FOLDER)
-					local modelPath = shallowCopyArray(nodeParentProjectPath)
-					table.insert(modelPath, formatModelFile(instance.Name))
-					local asset_modelPath = prependCopy(modelPath, BASE_ASSETS_FOLDER)
+					-- Instance is a Folder with an extra Folder.rbxm set to its $path
 
 					addEntryToProjectNode(newRojoProject.tree, folderPath, joinPath(asset_modelPath))
 					local indexInstance = instance:Clone()
@@ -296,42 +299,63 @@ do
 					if shouldUnpackModels then
 						writeModelFile(indexInstance, asset_modelPath)
 					end
-					nodeParentProjectPath[#nodeParentProjectPath] = indexInstance.Name
-
-					for _, child in ipairs(instance:GetChildren()) do
-						if not shouldInstanceGetMergedInParentModel(child) then
-							table.insert(stack, child)
-						end
-					end
+					parentPath[#parentPath] = indexInstance.Name
 				else
-					local shouldAddProjectEntry = false
-					for _, child in ipairs(instance:GetChildren()) do
-						table.insert(stack, child)
-						if not isInstancePure(child) and not shouldInstanceGetMergedInParentModel(child) then
-							shouldAddProjectEntry = true
-						end
-					end
-					if shouldAddProjectEntry then
-						addEntryToProjectNode(
-							newRojoProject.tree,
-							nodeParentProjectPath,
-							joinPath(prependCopy(nodeParentProjectPath, "assets"))
-						)
-					end
+					-- Instance is a simple Folder
 				end
 			else
-				local parentFolderPath = getAssetParent(instance, false)
-				local instancePath = appendCopy(parentFolderPath, instance.Name)
-				local assetPath = prependCopy(parentFolderPath, BASE_ASSETS_FOLDER)
+				-- Instance is something like a Model
+
+				local instancePath = appendCopy(parentPath, instance.Name)
+				local assetPath = prependCopy(parentPath, baseAssetsFolder)
 				table.insert(assetPath, formatModelFile(instance.Name))
-				if shouldNodeForInstanceBeExpanded(instance.Parent) then
-					addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
-				end
+				addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
+
 				if shouldUnpackModels then
 					writeModelFile(instance, assetPath)
 				end
 			end
+			for _, child in ipairs(instance:GetChildren()) do
+				table.insert(stack, child)
+			end
 		end
+
+		while #stack > 0 do
+			iterate()
+		end
+	end
+
+	do
+		local stack = { newRojoProject.tree }
+
+		local function iterate()
+			local node = table.remove(stack)
+
+			if node["$className"] == nil and node["$path"] == nil then
+				node["$className"] = "Folder"
+			end
+
+			for key, value in pairs(node) do
+				if type(value) == "table" and key ~= "$properties" then
+					table.insert(stack, value)
+				end
+			end
+		end
+
+		-- TODO: Add a pass for optimizing non-expanded folders
+		--[[
+			FolderA
+				$path -> FolderA/FolderB
+				$path -> FolderA/FolderC
+				FolderB
+				FolderC
+
+			...
+
+			FolderA ($path -> FolderA)
+				FolderB
+				FolderC
+		]]
 
 		while #stack > 0 do
 			iterate()
@@ -352,7 +376,7 @@ do
 
 			if nodePathProperty then
 				local dataModelInstance = findInstanceFromPath(shallowCopyArray(dataModelPath))
-				if dataModelInstance and isCodeTree(dataModelInstance) then
+				if dataModelInstance and isCodeTree(dataModelInstance) and not nodePathProperty:find("%.rbxmx?$") then
 					mountDataModelCodeTreeToPath(dataModelInstance, splitString(nodePathProperty, "/"))
 				end
 			end
@@ -368,11 +392,6 @@ do
 		while #stack > 0 do
 			iterate()
 		end
-
-		pcall(function()
-			newRojoProject.tree.StarterPlayer.StarterPlayerScripts["$className"] = nil
-			newRojoProject.tree.StarterPlayer.StarterCharacterScripts["$className"] = nil
-		end)
 	end
 
 	if shouldOverwriteProjectFile then
