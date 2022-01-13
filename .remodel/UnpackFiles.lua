@@ -98,11 +98,11 @@ local function makeFileParentDirectory(segments)
 	remodel.createDirAll(joinPath(newSegments))
 end
 
-local function addEntryToProjectNode(node, entrySegments, value)
+local function addEntryToProjectNode(node, entrySegments, value, noClassName)
 	for i, segment in ipairs(entrySegments) do
 		node[segment] = node[segment] or {}
 		node = node[segment]
-		if not node["$className"] and i ~= #entrySegments and i ~= 1 then
+		if not node["$className"] and (i ~= #entrySegments) and (i ~= 1) and not noClassName then
 			node["$className"] = "Folder"
 		end
 	end
@@ -135,7 +135,21 @@ local function isCodeTree(instance)
 end
 
 local function shouldInstanceGetMergedInParentModel(instance)
-	return (not isInstancePure(instance)) and instance.ClassName ~= "Folder" and instance.ClassName ~= "Model"
+	local basicCheck = (not isInstancePure(instance))
+		and instance.ClassName ~= "Folder"
+		and instance.ClassName ~= "Model"
+		and instance.ClassName ~= "StarterCharacterScripts"
+		and instance.ClassName ~= "StarterPlayerScripts"
+
+	if basicCheck then
+		return true
+	end
+
+	-- Detect name conflicts
+	local clonedParent = instance.Parent:Clone()
+	local foundChild = clonedParent:FindFirstChild(instance.Name)
+	foundChild:Destroy()
+	return clonedParent:FindFirstChild(instance.Name) ~= nil
 end
 
 local function getInstancePath(instance)
@@ -223,6 +237,13 @@ local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
 end
 
 do
+	do
+		local camera = DataModel:GetService("Workspace"):FindFirstChild("Camera")
+		if camera then
+			camera:Destroy()
+		end
+	end
+
 	local newRojoProject = {
 		tree = {
 			["$className"] = "DataModel",
@@ -281,13 +302,19 @@ do
 						end
 					end
 				else
-					addEntryToProjectNode(
-						newRojoProject.tree,
-						nodeParentProjectPath,
-						joinPath(prependCopy(nodeParentProjectPath, "DataModel"))
-					)
+					local shouldAddProjectEntry = false
 					for _, child in ipairs(instance:GetChildren()) do
 						table.insert(stack, child)
+						if not isInstancePure(child) and not shouldInstanceGetMergedInParentModel(child) then
+							shouldAddProjectEntry = true
+						end
+					end
+					if shouldAddProjectEntry then
+						addEntryToProjectNode(
+							newRojoProject.tree,
+							nodeParentProjectPath,
+							joinPath(prependCopy(nodeParentProjectPath, "assets"))
+						)
 					end
 				end
 			else
@@ -295,7 +322,9 @@ do
 				local instancePath = appendCopy(parentFolderPath, instance.Name)
 				local assetPath = prependCopy(parentFolderPath, BASE_ASSETS_FOLDER)
 				table.insert(assetPath, formatModelFile(instance.Name))
-				addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
+				if shouldNodeForInstanceBeExpanded(instance.Parent) then
+					addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
+				end
 				writeModelFile(instance, assetPath)
 			end
 		end
@@ -335,6 +364,11 @@ do
 		while #stack > 0 do
 			iterate()
 		end
+
+		pcall(function()
+			newRojoProject.tree.StarterPlayer.StarterPlayerScripts["$className"] = nil
+			newRojoProject.tree.StarterPlayer.StarterCharacterScripts["$className"] = nil
+		end)
 	end
 
 	if shouldOverwriteProjectFile then
