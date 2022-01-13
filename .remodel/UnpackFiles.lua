@@ -293,7 +293,9 @@ do
 							child:Destroy()
 						end
 					end
-					writeModelFile(indexInstance, asset_modelPath)
+					if shouldUnpackModels then
+						writeModelFile(indexInstance, asset_modelPath)
+					end
 					nodeParentProjectPath[#nodeParentProjectPath] = indexInstance.Name
 
 					for _, child in ipairs(instance:GetChildren()) do
@@ -325,7 +327,9 @@ do
 				if shouldNodeForInstanceBeExpanded(instance.Parent) then
 					addEntryToProjectNode(newRojoProject.tree, instancePath, joinPath(assetPath))
 				end
-				writeModelFile(instance, assetPath)
+				if shouldUnpackModels then
+					writeModelFile(instance, assetPath)
+				end
 			end
 		end
 
