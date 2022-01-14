@@ -23,7 +23,7 @@
   "bugs": {
     "url": "https://github.com/tacheometry/Rostar/issues"
   },
-  "homepage": "https://github.com/tacheometry/Rostar#readme",
+  "homepage": "https://tacheometry.github.io/Rostar",
   "devDependencies": {
     "@types/hasbin": "^1.2.0",
     "@types/node": "^17.0.7",
