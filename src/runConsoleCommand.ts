@@ -7,7 +7,7 @@ export const runConsoleCommand = (
 	workingDirectory?: string,
 	errorFunction = logError
 ) =>
-	new Promise<void>((resolve, reject) => {
+	new Promise<[string, string]>((resolve, reject) => {
 		child_process.exec(
 			command,
 			{
@@ -23,8 +23,8 @@ export const runConsoleCommand = (
 						.split("\n")
 						.filter((line) => line.trim() !== "")
 						.forEach(errorFunction);
-					reject();
-				} else resolve();
+					reject([stdout, stderr]);
+				} else resolve([stdout, stderr]);
 			}
 		);
 	});
