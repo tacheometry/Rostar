@@ -1,5 +1,11 @@
 local informationFile = json.fromString(remodel.readFile("RostarData.json"))
-local initialRojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
+local initialRojoProject
+do
+	local success, exists = pcall(remode.isFile, informationFile.rojoProjectPath)
+	if success and exists then
+		initialRojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
+	end
+end
 local shouldOverwriteProjectFile = informationFile.shouldOverwriteProjectFile
 local shouldUnpackLua = informationFile.shouldUnpackLua
 local shouldUnpackModels = informationFile.shouldUnpackModels
@@ -98,7 +104,7 @@ local function makeFileParentDirectory(segments)
 	remodel.createDirAll(joinPath(newSegments))
 end
 
-local function addEntryToProjectNode(node, entrySegments, value, noAddClassName)
+local function addEntryToProjectNode(node, entrySegments, value)
 	for i, segment in ipairs(entrySegments) do
 		node[segment] = node[segment] or {}
 		node = node[segment]
@@ -246,9 +252,11 @@ do
 			["$className"] = "DataModel",
 		},
 	}
-	for property, value in pairs(initialRojoProject) do
-		if property ~= "tree" then
-			newRojoProject[property] = value
+	if initialRojoProject then
+		for property, value in pairs(initialRojoProject) do
+			if property ~= "tree" then
+				newRojoProject[property] = value
+			end
 		end
 	end
 
