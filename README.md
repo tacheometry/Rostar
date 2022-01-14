@@ -29,34 +29,3 @@ If you wish to use full Rojo, this can also be a good starting point, but fair w
 ## Documentation
 
 https://tacheometry.github.io/Rostar
-
-
-## Thanks
-
-A huge thankyou to Tacheometry who literally put this entire thing together and was patient while we described what we wanted!
-
-A MEGA HUGE thankyou and shoutout to the whole Rojo and Remodel team and community, because this is 100% derived and dependent on their work.
-
-
-## How does it work
-
-This works by wrappering Remodel and Rojo and turning their functionality into the "unpack" and "pack" commands.
-Rostar walks your .rblx datamodel and tries to create folders and files that match what was found.
-
-Generally:
-* Scripts are extracted to lua files (No they are not all collected into a single location - Go organize your workspace!)
-* Folders are recreated 1:1
-* Models are extracted to their own .RBXM files, if it can (see below)
-* "Loose Instances" (eg: random parts in your scene) get included into a parent .rbxm
-
-
-## Limitations
-
-* Currently cannot handle package links, as Rojo/Remodel doesn't understand those either.
-* Currently cannot extract scripts with _duplicate names and paths_ into their own files, instead they'll be packaged into a parent .rbxm and you'll get a warning.
-* Currently cannot extract models or instances with _duplicate names and paths_, they will be treated as "loose instances" and packaged into a parent .rbxm
-
-
-
-
-
