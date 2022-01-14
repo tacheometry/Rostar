@@ -1,7 +1,7 @@
 local informationFile = json.fromString(remodel.readFile("RostarData.json"))
 local initialRojoProject
 do
-	local success, exists = pcall(remode.isFile, informationFile.rojoProjectPath)
+	local success, exists = pcall(remodel.isFile, informationFile.rojoProjectPath)
 	if success and exists then
 		initialRojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
 	end
@@ -137,11 +137,14 @@ local function isCodeTree(instance)
 	return true
 end
 
+local instancesWarnedAbout = {}
 local function shouldInstanceGetMergedInParentModel(instance)
+	local isCode = isCodeTree(instance)
+	local fullName = instance:GetFullName()
+
 	local basicCheck = (not isService(instance))
 		and (not isInstancePure(instance))
-		and (not isCodeTree(instance))
-		and instance.ClassName ~= "Folder"
+		and not isCode
 		and instance.ClassName ~= "Model"
 		and instance.ClassName ~= "StarterCharacterScripts"
 		and instance.ClassName ~= "StarterPlayerScripts"
@@ -154,7 +157,18 @@ local function shouldInstanceGetMergedInParentModel(instance)
 	local clonedParent = instance.Parent:Clone()
 	local foundChild = clonedParent:FindFirstChild(instance.Name)
 	foundChild:Destroy()
-	return clonedParent:FindFirstChild(instance.Name) ~= nil
+	if clonedParent:FindFirstChild(instance.Name) then
+		if isCode and shouldUnpackLua and not instancesWarnedAbout[fullName] then
+			print(
+				"Warning: Duplicate script objects have been detected. The scripts at "
+					.. fullName
+					.. " will not be unpacked in .lua files."
+			)
+			instancesWarnedAbout[fullName] = true
+		end
+		return true
+	end
+	return false
 end
 
 local function getInstancePath(instance)
@@ -248,6 +262,7 @@ do
 	end
 
 	local newRojoProject = {
+		name = "Rostar Project",
 		tree = {
 			["$className"] = "DataModel",
 		},
