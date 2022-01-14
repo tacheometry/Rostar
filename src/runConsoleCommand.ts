@@ -18,11 +18,11 @@ export const runConsoleCommand = (
 					.split("\n")
 					.filter((line) => line.trim() !== "")
 					.forEach(loggingFunction);
-				if (err || stderr.length > 0) {
-					stderr
-						.split("\n")
-						.filter((line) => line.trim() !== "")
-						.forEach(errorFunction);
+				stderr
+					.split("\n")
+					.filter((line) => line.trim() !== "")
+					.forEach(errorFunction);
+				if (err) {
 					reject([stdout, stderr]);
 				} else resolve([stdout, stderr]);
 			}

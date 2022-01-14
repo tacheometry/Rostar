@@ -36,30 +36,35 @@ export const unpackCommand = async (
 
 	if (!isFile(placeFilePath))
 		return logError("The place file could not be found!");
-	if (!isFile(rojoProjectPath))
-		return logError("The Rojo project file could not be found!");
 
 	const rootProjectDirectory = path.resolve(path.join(rojoProjectPath, ".."));
-
-	if (options.models) {
-		const assetsFolder = path.join(rootProjectDirectory, assetsDirectory);
-		logInfo("Deleting files in the assets directory...");
-		fs.promises
-			.rm(assetsFolder, {
-				recursive: true,
-				force: true,
-			})
-			.catch(() =>
-				logWarn("Deleting files in the assets directory failed.")
+	if (isFile(rojoProjectPath)) {
+		if (options.models) {
+			const assetsFolder = path.join(
+				rootProjectDirectory,
+				assetsDirectory
 			);
+			logInfo("Deleting files in the assets directory...");
+			fs.promises
+				.rm(assetsFolder, {
+					recursive: true,
+					force: true,
+				})
+				.catch(() =>
+					logWarn("Deleting files in the assets directory failed.")
+				);
+		}
+
+		if (options.lua) {
+			const rojoProject = JSON.parse(
+				fs.readFileSync(rojoProjectPath).toString()
+			);
+			deleteCodeDirectories(rojoProject, rootProjectDirectory);
+		}
 	}
 
-	if (options.lua) {
-		const rojoProject = JSON.parse(
-			fs.readFileSync(rojoProjectPath).toString()
-		);
-		deleteCodeDirectories(rojoProject, rootProjectDirectory);
-	}
+	if (!shouldOverwriteProjectFile && !isFile(rojoProjectPath))
+		return logError("The Rojo project file could not be found!");
 
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
 	logInfo("Writing Rostar temporary file...");
@@ -72,14 +77,31 @@ export const unpackCommand = async (
 	});
 
 	logInfo("Running Remodel script...");
+	const logFunction = loggingFunction("REMODEL");
 	runConsoleCommand(
 		`remodel run ${path.join(__dirname, "../../.remodel/UnpackFiles.lua")}`,
-		loggingFunction("REMODEL"),
-		rootProjectDirectory
+		logFunction,
+		rootProjectDirectory,
+		logFunction
 	)
-		.then(() => logDone(`Unpacked ${path.basename(placeFilePath)}`))
-		.catch(() =>
-			logError(`Failed unpacking ${path.basename(placeFilePath)}`)
-		)
+		.then((std: [string, string]) => {
+			if (std[1].includes("is not a known Foreman tool")) {
+				logInfo(
+					`The previous error might be related to not having a valid "foreman.toml" file inside your project.`
+				);
+				logInfo(
+					`One can be created automatically by running \"rostar init\".`
+				);
+
+				return logError(
+					`Failed unpacking ${path.basename(placeFilePath)}`
+				);
+			}
+
+			logDone(`Unpacked ${path.basename(placeFilePath)}`);
+		})
+		.catch((std: [string, string]) => {
+			logError(`Failed unpacking ${path.basename(placeFilePath)}`);
+		})
 		.finally(() => fs.unlinkSync(rostarDataPath));
 };
