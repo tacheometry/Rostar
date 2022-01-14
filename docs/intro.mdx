@@ -1,82 +1,47 @@
 ---
+title: Introduction
+hide_title: true
 sidebar_position: 1
 ---
 
-import Tabs from "@theme/Tabs";
-import TabItem from "@theme/TabItem";
+<div align="center">
+	<img src="../../img/logo.svg" alt="Rostar logo" width="20%" />
+	<h1>Rostar</h1>
+	Dead simple fully managed Rojo helper for Roblox projects
+</div>
 
-# Tooling setup
+## Description
 
-## Getting the npm package
+Rostar is a command-line tool that unpacks/packs Roblox place files (`rbxl`/`rbxlx`) into model files and `.lua` scripts in the filesystem, for use with [Rojo](https://rojo.space/).
 
-To install Rostar, make sure [Node.js](https://nodejs.org) is set up. After that, it can installed by getting the [`rostar`](https://npmjs.com/package/rostar) package:
+_Think of it like being able to treat your `rbxl` files like a `zip` file._
 
-```bash
-npm install -g rostar
-```
+We made this for developers who do all their work in Roblox Studio, but who also wanted an easy to get the benefits of storing their models and scripts in files (such as being able to use [Git](https://git-scm.com)), without changing their workflow.
 
-Running the command with the `-g` argument is recommended, and allows you to run `rostar` from any location in your console.
+Rostar is also fitting for Rojo users that would like a [fully managed workflow](https://rojo.space/docs/v7/workflows/#fully-managed-rojo) without going through the hassle of the traditional workflow (i.e. writing Remodel scripts, editing the Rojo project file when wanting to make changes). See the [Rojo-first workflow](../Workflow%20guides/rojoFirst) guide for more info.
 
-## Installing Rojo and Remodel
+## How it works
 
-It is recommended to use [Foreman](https://github.com/Roblox/foreman) for managing Rostar's required tools - [Rojo](https://github.com/rojo-rbx/rojo) and [Remodel](https://github.com/rojo-rbx/remodel). Foreman can be installed through [cargo](https://crates.io/crates/foreman) or by getting the binary files inside your system PATH.
+Rostar functions by wrapping Remodel and Rojo and turning their functionality into the `unpack` and `pack` commands. The tool walks your `rbxl`/`rbxlx` DataModel and tries to create folders and files that match what was found.
 
-:::note
-Foreman may be replaced by [Aftman](https://github.com/LPGhatguy/aftman) in the future.
-:::
+Generally:
 
-### Setting up Foreman
+-   Scripts are extracted into `lua` files;
+-   Folders are recreated 1:1;
+-   Models are extracted into their own `rbxm`/`rbxmx` files when possible (see below);
+-   _Loose instances_ (such as random parts in your scene) get included into a parent model file.
 
-<Tabs groupId="operating-systems">
+## Limitations
 
-<TabItem value="windows" label="Windows">
+-   Currently cannot handle package links, as Rojo does not support them;
+-   Models or scripts with _duplicate names and paths_ will be treated as _loose instances_ and packaged into their parent model file.
 
-1. Open the "Edit the system environment variables" application.
+## Thanks
 
-    ![Edit the system environment variables](./assets/toolingSetup/ControlPanelEntry.png)
+> A huge thankyou to Tacheometry who literally put this entire thing together and was patient while we described what we wanted!
+>
+> A MEGA HUGE thankyou and shoutout to the whole Rojo and Remodel team and community, because this is 100% derived and dependent on their work.
 
-2. Select "Environment Variables...".
-
-    ![Environmment Variables...](./assets/toolingSetup/SystemPropertiesHighlight.png)
-
-3. Under the "User variables for me" section, select "Path" and click "Edit...".
-
-    ![Edit...](./assets/toolingSetup/PathEditButtonHighlighted.png)
-
-4. In the menu that opens, click "New".
-
-    ![New](./assets/toolingSetup/PathListNewButtonHighlighted.png)
-
-5. Add the `C:\Users\<My username>\.foreman\bin\` directory.
-
-6. Create the `C:\Users\<My username>\.foreman\bin\` directory:
-
-    ```shell
-    mkdir %userprofile%\.foreman\bin
-    ```
-
-7. Download the Foreman archive specific to your OS from the [releases on GitHub](https://github.com/Roblox/foreman/releases/latest).
-8. Unzip the archive and place the executable in the `C:\Users\<My username>\.foreman\bin\` directory.
-
-</TabItem>
-
-<TabItem value="mac" label="MacOS">
-
-1. Open or create the `~/.zshrc` file and add `:/Users/<My username>/.foreman/bin` to the end of the `PATH=` line. If this line doesn't exist add a new line with the contents:
-    ```bash
-    PATH=/Users/<My username>/.foreman/bin
-    ```
-2. Download the Foreman archive specific to your OS from the [releases on GitHub](https://github.com/Roblox/foreman/releases/latest).
-3. Unzip the archive and place the executable in `/usr/local/bin/`.
-
-</TabItem>
-
-<TabItem value="linux" label="Linux">
-
-1. Depending on the shell, the `PATH` variable will have to be appended `/home/<My username>/.foreman/bin`.
-2. Download the Foreman archive specific to your OS from the [releases on GitHub](https://github.com/Roblox/foreman/releases/latest).
-3. Unzip the archive and place the executable in `/usr/local/bin/`.
-
-</TabItem>
-
-</Tabs>
+<div align="right">
+	<i>MrChickenRocket</i>
+</div>
