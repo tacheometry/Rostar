@@ -123,11 +123,7 @@ local function isService(instance)
 end
 
 local function isInstancePure(instance)
-	return isLuaSourceContainer(instance.ClassName)
-		or instance.ClassName == "Folder"
-		or isService(instance)
-		or instance.ClassName == "StarterCharacterScripts"
-		or instance.ClassName == "StarterPlayerScripts"
+	return isLuaSourceContainer(instance.ClassName) or instance.ClassName == "Folder"
 end
 
 local function isCodeTree(instance)
@@ -150,11 +146,21 @@ local function shouldInstanceGetMergedInParentModel(instance)
 	local isCode = isCodeTree(instance)
 	local fullName = instance:GetFullName()
 
+	if
+		isService(instance)
+		or instance.ClassName == "StarterPlayerScripts"
+		or instance.ClassName == "StarterCharacterScripts"
+	then
+		return false
+	end
+
 	if _mergingExtraChecks(instance.Parent) then
 		return true
 	end
 
-	local basicCheck = not isInstancePure(instance) and not _mergingExtraChecks(instance)
+	local basicCheck = not isInstancePure(instance)
+		and not _mergingExtraChecks(instance)
+		and instance.ClassName ~= "Actor"
 
 	if basicCheck then
 		return true
@@ -212,6 +218,7 @@ local function canNodeForInstanceBeExpanded(instance)
 		or isService(instance)
 		or instance.ClassName == "StarterPlayerScripts"
 		or instance.ClassName == "StarterCharacterScripts"
+		or instance.ClassName == "Actor"
 end
 
 local function shouldNodeForInstanceBeExpanded(instance)
