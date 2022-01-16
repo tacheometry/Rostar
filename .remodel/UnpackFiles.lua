@@ -81,10 +81,6 @@ local function formatScriptFile(baseName, className)
 	return baseName .. suffix .. ".lua"
 end
 
-local function isInstancePure(instance)
-	return isLuaSourceContainer(instance.ClassName) or instance.ClassName == "Folder"
-end
-
 local function formatModelFile(baseName)
 	return baseName .. "." .. modelFileExtension
 end
@@ -126,6 +122,14 @@ local function isService(instance)
 	return instance.Parent == DataModel
 end
 
+local function isInstancePure(instance)
+	return isLuaSourceContainer(instance.ClassName)
+		or instance.ClassName == "Folder"
+		or isService(instance)
+		or instance.ClassName == "StarterCharacterScripts"
+		or instance.ClassName == "StarterPlayerScripts"
+end
+
 local function isCodeTree(instance)
 	local toCheck = instance:GetDescendants()
 	table.insert(toCheck, instance)
@@ -137,17 +141,20 @@ local function isCodeTree(instance)
 	return true
 end
 
+local function _mergingExtraChecks(instance)
+	return instance.ClassName == "Model" or instance.ClassName == "ScreenGui"
+end
+
 local instancesWarnedAbout = {}
 local function shouldInstanceGetMergedInParentModel(instance)
 	local isCode = isCodeTree(instance)
 	local fullName = instance:GetFullName()
 
-	local basicCheck = (not isService(instance))
-		and (not isInstancePure(instance))
-		and not isCode
-		and instance.ClassName ~= "Model"
-		and instance.ClassName ~= "StarterCharacterScripts"
-		and instance.ClassName ~= "StarterPlayerScripts"
+	if _mergingExtraChecks(instance.Parent) then
+		return true
+	end
+
+	local basicCheck = not isInstancePure(instance) and not _mergingExtraChecks(instance)
 
 	if basicCheck then
 		return true
