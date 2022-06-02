@@ -20,19 +20,9 @@ To extract models and/or scripts from a place file, the following command is use
 rostar unpack ./Path_To_Place_File.rbxl
 ```
 
-By default, the unpack command generates a folder structure that tries to replicate the structure of the Roblox DataModel. There are two folders - one for scripts and one for model files:
+By default, the unpack command generates a folder structure that tries to replicate the structure of the Roblox DataModel. ModuleScripts, LocalScripts, and Scripts are placed in `.lua` files (wherever possible), and other instances are placed in rbxm or rbxmx files.
 
 ```
-assets/
-	Workspace/
-		SomeFolder/
-			AnotherFolder/
-				ModelA.rbxm
-				ModelB.rbxm
-	ServerStorage/
-		SomeModel.rbxm
-	...
-
 DataModel/
 	ServerScriptService/
 		Code/
@@ -43,6 +33,9 @@ DataModel/
 			someModule.lua
 	ServerStorage/
 		someModule.lua
+	Workspace.rbxm
+	Lighting.rbxm
+	SoundService.rbxm
 	...
 ```
 
