@@ -10,7 +10,7 @@ const TAGLINE = "Dead simple fully managed Rojo helper for Roblox projects";
 const config = {
 	title: "Rostar",
 	tagline: TAGLINE,
-	url: "https://tacheometry.github.io/Rostar",
+	url: "https://tacheometry.github.io",
 	baseUrl: "/Rostar/",
 	onBrokenLinks: "throw",
 	onBrokenMarkdownLinks: "warn",
