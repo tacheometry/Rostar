@@ -76,3 +76,11 @@ This is virtually equivalent to running:
 ```bash
 rojo build --output OutputPlaceFile.rbxl
 ```
+
+## Tips
+
+To run a command every time your place file changes, the [`nodemon`](https://www.npmjs.com/package/nodemon) utility package can be used. After installing it with `npm i -g nodemon`, it can be set up so unpacking runs every time the place file changes:
+
+```sh
+nodemon -w StudioPlace.rbxl --exec rostar unpack StudioPlace.rbxl
+```
