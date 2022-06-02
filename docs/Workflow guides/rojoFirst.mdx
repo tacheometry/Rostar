@@ -2,3 +2,95 @@
 title: Rojo-first workflow
 sidebar_position: 1
 ---
+
+A Rojo-first workflow presumes using the filesystem as the source of truth for code (`.lua` files), and using Studio as the source for models and related instances.
+
+To achieve this, the following constraints must be ensured:
+
+- The project file must not be overwritten
+- Source files must not be overwritten
+
+So, to use Rostar in this way — only extracting models — the tool can be run using the following parameters:
+
+```sh
+rostar unpack PlaceFile.rbxl --no-overwrite-project --no-lua --assets-directory assets
+```
+
+This command configuration will use another directory for models, and will keep the existing source files intact.
+
+### Caveats
+
+The existing project file will have to be modified to use the extracted asset files. Each service will have to be marked inside the project file, and their children and/or some descendants will have to be explicitly written, too.
+
+A way around this is running Rostar for the initial generation of the project file, and then adjusting the directories for the source code accordingly.
+
+#### Example project file
+
+```json
+{
+  "name": "Rojo-first Project",
+  "tree": {
+    "$className": "DataModel",
+    "Chat": {
+      "$path": "assets/Chat.rbxm"
+    },
+    "Lighting": {
+      "$path": "assets/Lighting.rbxm"
+    },
+    "LocalizationService": {
+      "$path": "assets/LocalizationService.rbxm"
+    },
+    "Players": {
+      "$path": "assets/Players.rbxm"
+    },
+    "ReplicatedFirst": {
+      "$path": "assets/ReplicatedFirst.rbxm"
+    },
+    "ReplicatedStorage": {
+      "$path": "assets/ReplicatedStorage.rbxm",
+      "TS": {
+        "$path": "assets/ReplicatedStorage/TS"
+      },
+      "rbxts_include": {
+        "$path": "assets/ReplicatedStorage/rbxts_include"
+      }
+    },
+    "ServerScriptService": {
+      "$path": "assets/ServerScriptService.rbxm",
+      "Code": {
+        "$path": "src/server"
+      }
+    },
+    "ServerStorage": {
+      "$path": "assets/ServerStorage.rbxm",
+      "Weapons": {
+        "$path": "assets/ServerStorage/Weapons"
+      }
+    },
+    "SoundService": {
+      "$path": "assets/SoundService.rbxm"
+    },
+    "StarterGui": {
+      "$path": "assets/StarterGui.rbxm"
+    },
+    "StarterPack": {
+      "$path": "assets/StarterPack.rbxm"
+    },
+    "StarterPlayer": {
+      "$path": "assets/StarterPlayer.rbxm",
+      "StarterCharacterScripts": {
+        "$path": "assets/StarterPlayer/StarterCharacterScripts.rbxm"
+      },
+      "StarterPlayerScripts": {
+        "$path": "assets/StarterPlayer/StarterPlayerScripts.rbxm",
+        "Code": {
+          "$path": "src/client"
+        }
+      }
+    },
+    "Workspace": {
+      "$path": "assets/Workspace.rbxm"
+    }
+  }
+}
+```
