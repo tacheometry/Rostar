@@ -11,7 +11,14 @@ local shouldUnpackLua = informationFile.shouldUnpackLua
 local shouldUnpackModels = informationFile.shouldUnpackModels
 local modelFileExtension = informationFile.modelFormat
 local baseAssetsFolder = informationFile.assetsDirectory
-local DataModel = remodel.readPlaceFile(informationFile.placeFilePath)
+local DataModel
+if informationFile.placeType == "file" then
+	DataModel = remodel.readPlaceFile(informationFile.placeLocation)
+elseif informationFile.placeType == "web" then
+	DataModel = remodel.readPlaceAsset(informationFile.placeLocation)
+else
+	error("Invalid place type: " .. informationFile.placeType)
+end
 
 local WHITELISTED_SERVICES = {
 	["Workspace"] = true,

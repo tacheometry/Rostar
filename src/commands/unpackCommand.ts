@@ -13,7 +13,7 @@ import { runConsoleCommand } from "../runConsoleCommand";
 import { deleteCodeDirectories } from "../deleteCodeDirectories";
 
 export const unpackCommand = async (
-	placeFilePath: string,
+	fromPlace: string,
 	options: {
 		project: string;
 		lua: boolean;
@@ -23,7 +23,6 @@ export const unpackCommand = async (
 		assetsDirectory: string;
 	}
 ) => {
-	placeFilePath = path.resolve(placeFilePath);
 	const rojoProjectPath = path.resolve(options.project);
 	const shouldOverwriteProjectFile = options.overwriteProject;
 	const shouldUnpackLua = options.lua;
@@ -34,8 +33,17 @@ export const unpackCommand = async (
 	if (modelFormat !== "rbxm" && modelFormat !== "rbxmx")
 		return logError('The model format must be either "rbxm" or "rbxmx".');
 
-	if (!isFile(placeFilePath))
-		return logError("The place file could not be found!");
+	let placeLocation, placeType: "file" | "web";
+	const placeFile = path.resolve(fromPlace);
+	if (isFile(placeFile)) {
+		placeLocation = placeFile;
+		placeType = "file";
+	} else if (parseInt(fromPlace)) {
+		placeLocation = fromPlace;
+		placeType = "web";
+	} else {
+		return logError("The place could not be found!");
+	}
 
 	const rootProjectDirectory = path.resolve(path.join(rojoProjectPath, ".."));
 	if (isFile(rojoProjectPath)) {
@@ -68,7 +76,10 @@ export const unpackCommand = async (
 
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
 	logInfo("Writing Rostar temporary file...");
-	await writeRostarDataFile(rostarDataPath, rojoProjectPath, placeFilePath, {
+	await writeRostarDataFile(rostarDataPath, {
+		rojoProjectPath,
+		placeLocation,
+		placeType,
 		shouldOverwriteProjectFile,
 		shouldUnpackLua,
 		shouldUnpackModels,
@@ -93,15 +104,13 @@ export const unpackCommand = async (
 					`One can be created automatically by running \"rostar init\".`
 				);
 
-				return logError(
-					`Failed unpacking ${path.basename(placeFilePath)}`
-				);
+				return logError(`Failed unpacking ${path.basename(fromPlace)}`);
 			}
 
-			logDone(`Unpacked ${path.basename(placeFilePath)}`);
+			logDone(`Unpacked ${path.basename(fromPlace)}`);
 		})
 		.catch((std: [string, string]) => {
-			logError(`Failed unpacking ${path.basename(placeFilePath)}`);
+			logError(`Failed unpacking ${path.basename(fromPlace)}`);
 		})
 		.finally(() => fs.unlinkSync(rostarDataPath));
 };

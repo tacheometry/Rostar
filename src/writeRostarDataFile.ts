@@ -1,17 +1,20 @@
 import fs from "fs";
 import path from "path";
 
+export interface DataOptions {
+	rojoProjectPath: string;
+	placeLocation: string;
+	placeType: "file" | "web";
+	shouldOverwriteProjectFile: boolean;
+	shouldUnpackLua: boolean;
+	shouldUnpackModels: boolean;
+	modelFormat: "rbxm" | "rbxmx";
+	assetsDirectory: string;
+}
 export const writeRostarDataFile = (
 	filePath: string,
-	rojoProjectPath: string,
-	placeFilePath: string,
-	extraOptions: Record<string, unknown> = {}
+	dataObject: DataOptions
 ) => {
-	const dataObject = {
-		...extraOptions,
-		rojoProjectPath,
-		placeFilePath,
-	};
 	return fs.promises
 		.mkdir(path.dirname(filePath), { recursive: true })
 		.then(() =>
