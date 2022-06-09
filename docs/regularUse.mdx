@@ -20,23 +20,41 @@ To extract models and/or scripts from a place file, the following command is use
 rostar unpack ./Path_To_Place_File.rbxl
 ```
 
+or to extract from a place id:
+
+```bash
+rostar unpack 12345678
+```
+
+:::note
+If unable to extract from a place id, Remodel might not be able to authenticate properly. In some cases, a `REMODEL_AUTH` environment variable might need to be set. For example (on Linux and MacOS):
+
+```bash
+export REMODEL_AUTH="<Insert Roblox cookie>"; rostar unpack <Place id>
+```
+
+[See more info on Remodel's repository.](https://github.com/rojo-rbx/remodel#Authentication)
+:::
+
 By default, the unpack command generates a folder structure that tries to replicate the structure of the Roblox DataModel. ModuleScripts, LocalScripts, and Scripts are placed in `.lua` files (wherever possible), and other instances are placed in rbxm or rbxmx files.
 
 ```
+
 DataModel/
-	ServerScriptService/
-		Code/
-			init.server.lua
-			someModule.lua
-	ReplicatedStorage/
-		Shared/
-			someModule.lua
-	ServerStorage/
-		someModule.lua
-	Workspace.rbxm
-	Lighting.rbxm
-	SoundService.rbxm
-	...
+ServerScriptService/
+Code/
+init.server.lua
+someModule.lua
+ReplicatedStorage/
+Shared/
+someModule.lua
+ServerStorage/
+someModule.lua
+Workspace.rbxm
+Lighting.rbxm
+SoundService.rbxm
+...
+
 ```
 
 :::tip
