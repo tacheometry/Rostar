@@ -16,8 +16,10 @@ if informationFile.placeType == "file" then
 	DataModel = remodel.readPlaceFile(informationFile.placeLocation)
 elseif informationFile.placeType == "web" then
 	DataModel = remodel.readPlaceAsset(informationFile.placeLocation)
-else
-	error("Invalid place type: " .. informationFile.placeType)
+end
+
+if not DataModel then
+	error("Could not get any DataModel.")
 end
 
 local WHITELISTED_SERVICES = {
