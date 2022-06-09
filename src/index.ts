@@ -18,7 +18,7 @@ program
 		isDefault: true,
 	})
 	.description(
-		"From a rbxl/rbxlx file, extract scripts from the $path properties in the Rojo project file and place them into the filesystem, and extract the other instances into rbxm/rbxmx files to be used in the Rojo project file."
+		"From a place id or rbxl/rbxlx file, extract scripts as defined in the Rojo project file, and extract other models into rbxm or rbxmx files."
 	)
 	.option(
 		"-p, --project <project>",
