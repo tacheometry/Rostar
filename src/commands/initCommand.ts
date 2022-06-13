@@ -13,7 +13,7 @@ import { runConsoleCommand } from "../runConsoleCommand";
 
 const DEFAULT_FOREMAN_CONFIG = `[tools]
 rojo = { source = "rojo-rbx/rojo", version = "~7.0.0" }
-remodel = { source = "rojo-rbx/remodel", version = "0.9.1" }
+remodel = { source = "rojo-rbx/remodel", version = "=0.10.0" }
 `;
 
 export const initCommand = async (
