@@ -150,10 +150,22 @@ local function _mergingExtraChecks(instance)
 	return instance.ClassName == "Model" or instance.ClassName == "ScreenGui"
 end
 
+local function getFullName(object)
+	local result = object.Name
+	object = object.Parent
+	while object and object ~= DataModel do
+		-- Prepend parent name
+		result = object.Name .. "." .. result
+		-- Go up the hierarchy
+		object = object.Parent
+	end
+	return result
+end
+
 local instancesWarnedAbout = {}
 local function shouldInstanceGetMergedInParentModel(instance)
 	local isCode = isCodeTree(instance)
-	local fullName = instance:GetFullName()
+	local fullName = getFullName(instance)
 
 	if
 		isService(instance)
