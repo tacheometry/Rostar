@@ -1,6 +1,6 @@
 {
 	"name": "rostar",
-	"version": "0.0.5",
+	"version": "0.1.0",
 	"description": "Dead simple fully managed Rojo helper for Roblox projects",
 	"main": "out/index.js",
 	"files": [
