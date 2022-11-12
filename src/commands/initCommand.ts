@@ -12,8 +12,8 @@ import hasbin from "hasbin";
 import { runConsoleCommand } from "../runConsoleCommand";
 
 const DEFAULT_FOREMAN_CONFIG = `[tools]
-rojo = { source = "rojo-rbx/rojo", version = "~7.0.0" }
-remodel = { source = "rojo-rbx/remodel", version = "=0.10.0" }
+rojo = { github = "rojo-rbx/rojo", version = "7.2.1" }
+remodel = { github = "rojo-rbx/remodel", version = "0.11.0" }
 `;
 
 export const initCommand = async (
