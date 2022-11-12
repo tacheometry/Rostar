@@ -17,4 +17,7 @@ export const logDone = loggingFunction("DONE", chalk.green);
 
 export const logWarn = loggingFunction("WARN", chalk.yellow, console.warn);
 
-export const logError = loggingFunction("ERROR", chalk.red, console.error);
+export const logError = loggingFunction("ERROR", chalk.red, (e) => {
+	console.error(e);
+	process.exitCode = 1;
+});
