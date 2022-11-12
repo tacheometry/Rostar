@@ -116,10 +116,10 @@ local function addEntryToProjectNode(node, entrySegments, value)
 	end
 	node["$path"] = value
 end
-
+ 
 local function writeModelFile(instance, pathSegments)
 	makeFileParentDirectory(pathSegments)
-	remodel.writeModelFile(instance, joinPath(pathSegments))
+	remodel.writeModelFile(joinPath(pathSegments), instance)
 end
 
 local function writeFile(pathSegments, content)
