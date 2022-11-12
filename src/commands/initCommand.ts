@@ -1,6 +1,5 @@
 import path from "path";
 import fs from "fs";
-import child_process from "child_process";
 import { isDirectory } from "../fsUtil";
 import {
 	logDone,
