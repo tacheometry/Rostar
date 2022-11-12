@@ -74,6 +74,34 @@ export const unpackCommand = async (
 	if (!shouldOverwriteProjectFile && !isFile(rojoProjectPath))
 		return logError("The Rojo project file could not be found!");
 
+	const remodelLogFunction = loggingFunction("REMODEL");
+
+	// Test Remodel's existence and version
+	{
+		const remodelVersion = await runConsoleCommand(
+			"remodel -V",
+			() => {},
+			rootProjectDirectory
+		)
+			.catch(() => {
+				logError(
+					"Could not run Remodel in the project directory. Is Remodel configured correctly?"
+				);
+				return null;
+			})
+			.then((result) =>
+				result
+					? result[0].replace("remodel ", "").replace("\n", "")
+					: null
+			);
+		if (!remodelVersion) return;
+		const splitVersion = remodelVersion.split(".").map((v) => parseInt(v));
+		if (splitVersion[1] < 11)
+			return logError(
+				`Found Remodel with version ${remodelVersion}, but version >= 0.11 is needed!`
+			);
+	}
+
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
 	logInfo("Writing Rostar temporary file...");
 	await writeRostarDataFile(rostarDataPath, {
@@ -88,12 +116,11 @@ export const unpackCommand = async (
 	});
 
 	logInfo("Running Remodel script...");
-	const logFunction = loggingFunction("REMODEL");
 	runConsoleCommand(
 		`remodel run ${path.join(__dirname, "../../.remodel/UnpackFiles.lua")}`,
-		logFunction,
+		remodelLogFunction,
 		rootProjectDirectory,
-		logFunction
+		remodelLogFunction
 	)
 		.then((std: [string, string]) => {
 			if (std[1].includes("is not a known Foreman tool")) {
