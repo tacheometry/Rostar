@@ -5,7 +5,7 @@
 	"main": "out/index.js",
 	"files": [
 		"out/**",
-		".remodel/**"
+		".lune/**"
 	],
 	"scripts": {
 		"prepublishOnly": "npm run build",

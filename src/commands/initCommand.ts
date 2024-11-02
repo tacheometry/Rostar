@@ -10,9 +10,9 @@ import {
 import hasbin from "hasbin";
 import { runConsoleCommand } from "../runConsoleCommand";
 
-const DEFAULT_FOREMAN_CONFIG = `[tools]
-rojo = { github = "rojo-rbx/rojo", version = "7.2.1" }
-remodel = { github = "rojo-rbx/remodel", version = "0.11.0" }
+const DEFAULT_ROKIT_CONFIG = `[tools]
+rojo = "rojo-rbx/rojo@7.4.4"
+lune = "lune-org/lune@0.8.9"
 `;
 
 export const initCommand = async (
@@ -29,7 +29,7 @@ export const initCommand = async (
 
 	if (!options.force) {
 		const fileNamesToCheck = new Set([
-			"foreman.toml",
+			"rokit.toml",
 			".gitignore",
 			"default.project.json",
 		]);
@@ -49,10 +49,7 @@ export const initCommand = async (
 		}
 	}
 
-	fs.writeFileSync(
-		path.join(directory, "foreman.toml"),
-		DEFAULT_FOREMAN_CONFIG
-	);
+	fs.writeFileSync(path.join(directory, "rokit.toml"), DEFAULT_ROKIT_CONFIG);
 	fs.writeFileSync(
 		path.join(directory, ".gitignore"),
 		`/*.rbxlx.lock
@@ -69,14 +66,14 @@ export const initCommand = async (
 `
 	);
 
-	if (hasbin.sync("foreman")) {
-		logInfo("Foreman has been detected");
-		const foremanLog = loggingFunction("FOREMAN");
+	if (hasbin.sync("rokit")) {
+		logInfo("Rokit has been detected");
+		const rokitLog = loggingFunction("ROKIT");
 		await runConsoleCommand(
-			"foreman install",
-			foremanLog,
+			"rokit install",
+			rokitLog,
 			undefined,
-			foremanLog
+			rokitLog
 		).catch(() => {});
 	}
 

@@ -74,32 +74,30 @@ export const unpackCommand = async (
 	if (!shouldOverwriteProjectFile && !isFile(rojoProjectPath))
 		return logError("The Rojo project file could not be found!");
 
-	const remodelLogFunction = loggingFunction("REMODEL");
+	const luneLogFunction = loggingFunction("LUNE");
 
-	// Test Remodel's existence and version
+	// Test Lune's existence and version
 	{
-		const remodelVersion = await runConsoleCommand(
-			"remodel -V",
+		const luneVersion = await runConsoleCommand(
+			"lune -V",
 			() => {},
 			rootProjectDirectory
 		)
 			.catch(() => {
 				logError(
-					"Could not run Remodel in the project directory. Is Remodel configured correctly?"
+					"Could not run Lune in the project directory. Is Lune configured correctly?"
 				);
 				return null;
 			})
 			.then((result) =>
-				result
-					? result[0].replace("remodel ", "").replace("\n", "")
-					: null
+				result ? result[0].replace("lune ", "").replace("\n", "") : null
 			);
-		if (!remodelVersion) return;
-		const splitVersion = remodelVersion.split(".").map((v) => parseInt(v));
-		if (splitVersion[1] < 11)
-			return logError(
-				`Found Remodel with version ${remodelVersion}, but version >= 0.11 is needed!`
-			);
+		if (!luneVersion) return;
+		// const splitVersion = luneVersion.split(".").map((v) => parseInt(v));
+		// if (splitVersion[1] < 11)
+		// 	return logError(
+		// 		`Found Remodel with version ${luneVersion}, but version >= 0.11 is needed!`
+		// 	);
 	}
 
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
@@ -115,24 +113,24 @@ export const unpackCommand = async (
 		assetsDirectory,
 	});
 
-	logInfo("Running Remodel script...");
+	logInfo("Running Lune script...");
 	runConsoleCommand(
-		`remodel run ${path.join(__dirname, "../../.remodel/UnpackFiles.lua")}`,
-		remodelLogFunction,
+		`lune "${path.join(__dirname, "../../.lune/UnpackFiles.luau")}"`,
+		luneLogFunction,
 		rootProjectDirectory,
-		remodelLogFunction
+		luneLogFunction
 	)
 		.then((std: [string, string]) => {
-			if (std[1].includes("is not a known Foreman tool")) {
-				logInfo(
-					`The previous error might be related to not having a valid "foreman.toml" file inside your project.`
-				);
-				logInfo(
-					`One can be created automatically by running \"rostar init\".`
-				);
+			// if (std[1].includes("is not a known Foreman tool")) {
+			// 	logInfo(
+			// 		`The previous error might be related to not having a valid "foreman.toml" file inside your project.`
+			// 	);
+			// 	logInfo(
+			// 		`One can be created automatically by running \"rostar init\".`
+			// 	);
 
-				return logError(`Failed unpacking ${path.basename(fromPlace)}`);
-			}
+			// 	return logError(`Failed unpacking ${path.basename(fromPlace)}`);
+			// }
 
 			logDone(`Unpacked ${path.basename(fromPlace)}`);
 		})

@@ -1,9 +1,13 @@
-local informationFile = json.fromString(remodel.readFile("RostarData.json"))
+local remodel = require("./remodel")
+local fs = require("@lune/fs")
+local serde = require("@lune/serde")
+
+local informationFile = serde.decode("json", fs.readFile("RostarData.json"))
 local initialRojoProject
 do
 	local success, exists = pcall(remodel.isFile, informationFile.rojoProjectPath)
 	if success and exists then
-		initialRojoProject = json.fromString(remodel.readFile(informationFile.rojoProjectPath))
+		initialRojoProject = serde.decode("json", fs.readFile(informationFile.rojoProjectPath))
 	end
 end
 local shouldOverwriteProjectFile = informationFile.shouldOverwriteProjectFile
@@ -116,7 +120,7 @@ local function addEntryToProjectNode(node, entrySegments, value)
 	end
 	node["$path"] = value
 end
- 
+
 local function writeModelFile(instance, pathSegments)
 	makeFileParentDirectory(pathSegments)
 	remodel.writeModelFile(joinPath(pathSegments), instance)
@@ -267,7 +271,7 @@ local function mountDataModelCodeTreeToPath(rootInstance, rootFsPathSegments)
 			else
 				fsPathSegments[#fsPathSegments] = formatScriptFile(fsPathSegments[#fsPathSegments], instance.ClassName)
 			end
-			writeFile(fsPathSegments, remodel.getRawProperty(instance, "Source"))
+			writeFile(fsPathSegments, instance.Source)
 		end
 	end
 
@@ -442,6 +446,6 @@ do
 
 	if shouldOverwriteProjectFile then
 		print("Writing to project file...")
-		remodel.writeFile(informationFile.rojoProjectPath, json.toStringPretty(newRojoProject))
+		fs.writeFile(informationFile.rojoProjectPath, serde.encode("json", newRojoProject, true))
 	end
 end
