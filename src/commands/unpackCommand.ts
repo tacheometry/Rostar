@@ -76,6 +76,7 @@ export const unpackCommand = async (
 
 	const luneLogFunction = loggingFunction("LUNE");
 
+	let useOldLuneSyntax = false;
 	// Test Lune's existence and version
 	{
 		const luneVersion = await runConsoleCommand(
@@ -93,11 +94,13 @@ export const unpackCommand = async (
 				result ? result[0].replace("lune ", "").replace("\n", "") : null
 			);
 		if (!luneVersion) return;
-		// const splitVersion = luneVersion.split(".").map((v) => parseInt(v));
-		// if (splitVersion[1] < 11)
-		// 	return logError(
-		// 		`Found Remodel with version ${luneVersion}, but version >= 0.11 is needed!`
-		// 	);
+		const splitVersion = luneVersion.split(".").map((v) => parseInt(v));
+		if (splitVersion[1] < 8) {
+			logInfo(
+				`Found Lune with version ${luneVersion}, so the older "lune file.luau" syntax will be used.`
+			);
+			useOldLuneSyntax = true;
+		}
 	}
 
 	const rostarDataPath = path.join(rootProjectDirectory, "RostarData.json");
@@ -114,8 +117,12 @@ export const unpackCommand = async (
 	});
 
 	logInfo("Running Lune script...");
+	const filePath = `"${path.join(
+		__dirname,
+		"../../.lune/UnpackFiles.luau"
+	)}"`;
 	runConsoleCommand(
-		`lune "${path.join(__dirname, "../../.lune/UnpackFiles.luau")}"`,
+		useOldLuneSyntax ? `lune ${filePath}` : `lune run ${filePath}`,
 		luneLogFunction,
 		rootProjectDirectory,
 		luneLogFunction
